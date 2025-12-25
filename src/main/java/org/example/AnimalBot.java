@@ -7,7 +7,8 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
-    private TelegramClient telegramClient = new OkHttpTelegramClient("12345:YOUR_TOKEN");
+    private final TelegramClient telegramClient;
+    private final INaturalistApi api = new INaturalistApi();
 
     public AnimalBot(String botToken) {
         telegramClient = new OkHttpTelegramClient(botToken);
@@ -21,16 +22,74 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
             String message_text = update.getMessage().getText();
             long chat_id = update.getMessage().getChatId();
 
-            SendMessage message = SendMessage // Create a message object
-                    .builder()
-                    .chatId(chat_id)
-                    .text(message_text)
-                    .build();
-            try {
-                telegramClient.execute(message); // Sending our message object to user
-            } catch (TelegramApiException e) {
-                e.printStackTrace();
+            if(message_text.startsWith("/start")){
+                startMessage(chat_id);
+            } else if (message_text.startsWith("/help")){
+                helpMessage(chat_id);
+            } else if (message_text.startsWith("/animal")){
+                animalMessage(chat_id, message_text);
+            } else if (message_text.startsWith("/random")){
+
+            } else {
+                unknownMessage(chat_id);
             }
+        } else if (update.hasMessage() && update.getMessage().hasPhoto()) {
+            // Message contains photo
+        }
+    }
+
+    private void startMessage(long chatId){
+        sendMessage(chatId, "Benvenuto in AnimalBot\nScrivi /help per vedere i comandi disponibili");
+    }
+
+    private void helpMessage(long chatId){
+        String message =
+                "Comandi disponibili:\n" +
+                "/start - Avvia il bot\n" +
+                "/help - Mostra i comandi disponibili\n" +
+                "/animal <nome> - Informazioni su un animale\n" +
+                "/random - Animale casuale";
+        sendMessage(chatId, message);
+    }
+
+    private void animalMessage(long chatId, String text){
+        String name = text.replace("/animal", "").trim();
+
+        if(name.isEmpty()){
+            sendMessage(chatId, "Comando: /animal <nome>");
+            return;
+        }
+
+        AutocompleteResponse response = api.autocompleteAnimal(name);
+        if(response == null || response.getResults() == null || response.getResults().length == 0) {
+            sendMessage(chatId, "Animale non trovato");
+            return;
+        }
+
+        AutocompleteAnimal animal = response.getResults()[0];
+
+        String reply = animal.getDisplayName() + "\n" +
+                "Nome scientifico: " + animal.getScientificName() + "\n" +
+                "Classe: " + animal.getIconicTaxon() + "\n" +
+                animal.getWikipediaUrl();
+
+        sendMessage(chatId, reply);
+    }
+
+    private void unknownMessage(long chatId){
+        sendMessage(chatId, "Comando non riconosciuto\nScrivi /help per vedere i comandi disponibili");
+    }
+
+    private void sendMessage(long chatId, String text){
+        SendMessage message = SendMessage // Create a message object
+                .builder()
+                .chatId(chatId)
+                .text(text)
+                .build();
+        try {
+            telegramClient.execute(message); // Sending our message object to user
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
         }
     }
 }

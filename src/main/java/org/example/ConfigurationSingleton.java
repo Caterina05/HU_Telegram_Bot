@@ -28,5 +28,4 @@ public class ConfigurationSingleton {
     public String getProperty(String key) {
         return config.getString(key);
     }
-
 }
