@@ -2,6 +2,8 @@ package org.example;
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
+import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
@@ -68,12 +70,19 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
 
         AutocompleteAnimal animal = response.getResults()[0];
 
-        String reply = animal.getDisplayName() + "\n" +
+        String extinctStatus = animal.isExtinct() ? "Stato: estinto" : "Stato: non estinto";
+
+        String caption = animal.getDisplayName() + "\n" +
                 "Nome scientifico: " + animal.getScientificName() + "\n" +
                 "Classe: " + animal.getIconicTaxon() + "\n" +
+                extinctStatus + "\n" +
                 animal.getWikipediaUrl();
 
-        sendMessage(chatId, reply);
+        if(animal.getImageUrl() != null) {
+            sendPhoto(chatId, animal.getImageUrl(), caption);
+        } else {
+            sendMessage(chatId, caption + "\n(Immagine non disponibile)");
+        }
     }
 
     private void unknownMessage(long chatId){
@@ -88,6 +97,21 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
                 .build();
         try {
             telegramClient.execute(message); // Sending our message object to user
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void sendPhoto(long chatId, String photoUrl, String caption){
+        SendPhoto photo = SendPhoto
+                .builder()
+                .chatId(chatId)
+                .photo(new InputFile(photoUrl))
+                .caption(caption)
+                .build();
+
+        try {
+            telegramClient.execute(photo);
         } catch (TelegramApiException e) {
             e.printStackTrace();
         }
