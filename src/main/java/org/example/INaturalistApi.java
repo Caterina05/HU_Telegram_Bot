@@ -4,9 +4,11 @@ import com.google.gson.Gson;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 
 public class INaturalistApi {
     private static final String base_url = "https://api.inaturalist.org/v1";
@@ -37,9 +39,42 @@ public class INaturalistApi {
         }
     }
 
-    public AutocompleteResponse autocompleteAnimal(String name) {
-        String query = name.trim().replace(" ", "%20");
+    public AutocompleteAnimal autocompleteAnimal(String name) {
+        String query = URLEncoder.encode(name.trim(), StandardCharsets.UTF_8);
         String json = sendRequest("/taxa/autocomplete?q=" + query);
-        return gson.fromJson(json, AutocompleteResponse.class);
+        if(json == null) {
+            return null;
+        }
+        AutocompleteResponse response = gson.fromJson(json, AutocompleteResponse.class);
+
+        if(response == null || response.getResults() == null) {
+            return null;
+        }
+
+        for(AutocompleteAnimal animal : response.getResults()) {
+            if(isAnimal(animal)) {
+                return animal;
+            }
+        }
+
+        return null;
+    }
+
+    private boolean isAnimal(AutocompleteAnimal a) {
+        if(a.getIconicTaxon() == null) {
+            return false;
+        }
+
+        return switch (a.getIconicTaxon()) {
+            case "Mammalia",
+                 "Aves",
+                 "Reptilia",
+                 "Amphibia",
+                 "Actinopterygii",
+                 "Insecta",
+                 "Arachnida",
+                 "Animalia" -> true;
+            default -> false;
+        };
     }
 }

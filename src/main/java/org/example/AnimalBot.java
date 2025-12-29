@@ -76,13 +76,11 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
             return;
         }
 
-        AutocompleteResponse response = api.autocompleteAnimal(name);
-        if(response == null || response.getResults() == null || response.getResults().length == 0) {
+        AutocompleteAnimal animal = api.autocompleteAnimal(name);
+        if(animal == null) {
             sendMessage(chatId, "Animale non trovato");
             return;
         }
-
-        AutocompleteAnimal animal = response.getResults()[0];
 
         String extinctStatus = animal.isExtinct() ? "Stato: estinto" : "Stato: non estinto";
 
