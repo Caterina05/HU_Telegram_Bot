@@ -8,6 +8,8 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
+import java.sql.SQLException;
+
 public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
     private final TelegramClient telegramClient;
     private final INaturalistApi api = new INaturalistApi();
@@ -25,7 +27,7 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
             long chat_id = update.getMessage().getChatId();
 
             if(message_text.startsWith("/start")){
-                startMessage(chat_id);
+                startMessage(update);
             } else if (message_text.startsWith("/help")){
                 helpMessage(chat_id);
             } else if (message_text.startsWith("/animal")){
@@ -40,7 +42,19 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
         }
     }
 
-    private void startMessage(long chatId){
+    private void startMessage(Update update) {
+        long chatId = update.getMessage().getChatId();
+        var tgUser = update.getMessage().getFrom();
+
+        try {
+            Database db = Database.getInstance();
+            if(!db.userExists(tgUser.getId())){
+                db.insertUser(tgUser.getId(), tgUser.getUserName(), tgUser.getFirstName());
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
         sendMessage(chatId, "Benvenuto in AnimalBot\nScrivi /help per vedere i comandi disponibili");
     }
 
