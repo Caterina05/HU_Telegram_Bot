@@ -34,6 +34,8 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
                 animalMessage(chat_id, message_text);
             } else if (message_text.startsWith("/random")){
 
+            } else if (message_text.startsWith("/history")){
+                historyMessage(chat_id);
             } else {
                 unknownMessage(chat_id);
             }
@@ -64,7 +66,8 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
                 "/start - Avvia il bot\n" +
                 "/help - Mostra i comandi disponibili\n" +
                 "/animal <nome> - Informazioni su un animale\n" +
-                "/random - Animale casuale";
+                "/random - Animale casuale\n" +
+                "/history - Visualizza le ultime ricerche";
         sendMessage(chatId, message);
     }
 
@@ -94,6 +97,21 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
             sendPhoto(chatId, animal.getImageUrl(), caption);
         } else {
             sendMessage(chatId, caption + "\n(Immagine non disponibile)");
+        }
+
+        try {
+            Database.getInstance().saveSearch(chatId, animal.getDisplayName());
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void historyMessage(long chatId){
+        try {
+            String history = Database.getInstance().getUserHistory(chatId);
+            sendMessage(chatId, history);
+        } catch (SQLException e) {
+            sendMessage(chatId, "Errore database");
         }
     }
 

@@ -47,15 +47,15 @@ public class Database {
         }
     }
 
-    public boolean insertUser(long telegramId, String username, String firstName) {
+    public void insertUser(long telegramId, String username, String firstName) {
         try {
             if (connection == null || !connection.isValid(5)) {
                 System.err.println("Errore di connessione al database");
-                return false;
+                return;
             }
         } catch (SQLException e) {
             System.err.println("Errore di connessione al database");
-            return false;
+            return;
         }
 
         String query = "INSERT INTO users (telegram_id, username, first_name) VALUES (?, ?, ?)";
@@ -69,8 +69,73 @@ public class Database {
             statement.executeUpdate();
         } catch (SQLException e) {
             System.err.println("Errore di query: " + e.getMessage());
+        }
+    }
+
+    public boolean saveSearch(long telegramId, String animalName) {
+        try {
+            if (connection == null || !connection.isValid(5)) {
+                System.err.println("Errore di connessione al database");
+                return false;
+            }
+        } catch (SQLException e) {
+            System.err.println("Errore di connessione al database");
             return false;
         }
-        return true;
+
+        String query = "INSERT INTO search_history (telegram_id, animal_name) VALUES (?, ?)";
+        try {
+            PreparedStatement statement = connection.prepareStatement(query);
+
+            statement.setLong(1, telegramId);
+            statement.setString(2, animalName);
+
+            statement.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            System.err.println("Errore di query: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public String getUserHistory(long  telegramId) {
+        try {
+            if (connection == null || !connection.isValid(5)) {
+                System.err.println("Errore di connessione al database");
+                return "Errore di connessione al database";
+            }
+        } catch (SQLException e) {
+            System.err.println("Errore di connessione al database");
+            return "Errore di connessione al database";
+        }
+
+        String query = """
+            SELECT animal_name, searched_at
+            FROM search_history
+            WHERE telegram_id = ?
+            ORDER BY searched_at DESC
+            LIMIT 10
+        """;
+
+        String result = "Ultime ricerche:\n";
+
+        try {
+            PreparedStatement statement = connection.prepareStatement(query);
+            statement.setLong(1, telegramId);
+
+            ResultSet rs = statement.executeQuery();
+
+            boolean empty = true;
+            while (rs.next()) {
+                empty = false;
+                result += rs.getString("animal_name");
+                result += " (" + rs.getString("searched_at") + ")\n";
+            }
+
+            return empty ? "Nessuna ricerca trovata" : result;
+        } catch (SQLException e) {
+            System.err.println("Errore di query: " + e.getMessage());
+            return "Errore nel recupero della cronologia";
+        }
     }
 }
