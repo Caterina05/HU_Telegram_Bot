@@ -128,7 +128,7 @@ public class Database {
             boolean empty = true;
             while (rs.next()) {
                 empty = false;
-                result += rs.getString("animal_name");
+                result += "- " + rs.getString("animal_name");
                 result += " (" + rs.getString("searched_at") + ")\n";
             }
 
@@ -136,6 +136,66 @@ public class Database {
         } catch (SQLException e) {
             System.err.println("Errore di query: " + e.getMessage());
             return "Errore nel recupero della cronologia";
+        }
+    }
+
+    public boolean addFavourite(long telegramId, int animalId, String animalName) {
+        try {
+            if (connection == null || !connection.isValid(5)) {
+                System.err.println("Errore di connessione al database");
+                return false;
+            }
+        } catch (SQLException e) {
+            System.err.println("Errore di connessione al database");
+            return false;
+        }
+
+        String query = "INSERT OR IGNORE INTO favourites (telegram_id, animal_id, animal_name) VALUES (?, ?, ?)";
+        try {
+            PreparedStatement statement = connection.prepareStatement(query);
+
+            statement.setLong(1, telegramId);
+            statement.setInt(2, animalId);
+            statement.setString(3, animalName);
+            statement.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            System.err.println("Errore di query: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public String getFavourites(long telegramId) {
+        try {
+            if (connection == null || !connection.isValid(5)) {
+                System.err.println("Errore di connessione al database");
+                return "Errore di connessione al database";
+            }
+        } catch (SQLException e) {
+            System.err.println("Errore di connessione al database");
+            return "Errore di connessione al database";
+        }
+
+        String query = "SELECT animal_name FROM favourites WHERE telegram_id = ?";
+
+        String result = "Animali preferiti:\n";
+
+        try {
+            PreparedStatement statement = connection.prepareStatement(query);
+            statement.setLong(1, telegramId);
+
+            ResultSet rs = statement.executeQuery();
+
+            int count = 0;
+            while (rs.next()) {
+                count++;
+                result += "- " + rs.getString("animal_name") + "\n";
+            }
+
+            return count == 0 ? "Nessun animale nei preferiti" : result;
+        } catch (SQLException e) {
+            System.err.println("Errore di query: " + e.getMessage());
+            return "Errore nel recupero delle preferenze";
         }
     }
 }

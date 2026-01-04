@@ -1,12 +1,17 @@
 package org.example;
 
 public class AutocompleteAnimal {
+    private int id;
     private String name;
     private String preferred_common_name;
     private String iconic_taxon_name;
     private boolean extinct;
     private String wikipedia_url;
     private DefaultPhoto default_photo;
+
+    public int getId() {
+        return id;
+    }
 
     public String getScientificName() {
         return name;

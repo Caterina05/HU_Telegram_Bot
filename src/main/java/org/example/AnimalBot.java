@@ -5,6 +5,9 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
@@ -34,13 +37,38 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
                 animalMessage(chat_id, message_text);
             } else if (message_text.startsWith("/random")){
 
-            } else if (message_text.startsWith("/history")){
+            } else if (message_text.startsWith("/history")) {
                 historyMessage(chat_id);
+            } else if (message_text.startsWith("/favourites")) {
+                favouritesMessage(chat_id);
             } else {
                 unknownMessage(chat_id);
             }
         } else if (update.hasMessage() && update.getMessage().hasPhoto()) {
             // Message contains photo
+        } else if (update.hasCallbackQuery()){
+            String call_data = update.getCallbackQuery().getData();
+            long chat_id = update.getCallbackQuery().getMessage().getChatId();
+            long telegram_id = update.getCallbackQuery().getFrom().getId();
+
+            if (call_data.startsWith("FAV_")) {
+                String payload = call_data.replace("FAV_", "");
+                String[] parts = payload.split("\\|");
+
+                int animalId = Integer.parseInt(parts[0]);
+                String animalName = parts[1];
+
+                try {
+                    boolean saved = Database.getInstance().addFavourite(telegram_id, animalId, animalName);
+                    if(saved) {
+                        sendMessage(chat_id, "Animale aggiunto ai preferiti");
+                    } else {
+                        sendMessage(chat_id, "Questo animale è già nei preferiti");
+                    }
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
 
@@ -67,7 +95,8 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
                 "/help - Mostra i comandi disponibili\n" +
                 "/animal <nome> - Informazioni su un animale\n" +
                 "/random - Animale casuale\n" +
-                "/history - Visualizza le ultime ricerche";
+                "/history - Visualizza le ultime ricerche\n" +
+                "/favourites - Mostra gli animali preferiti";
         sendMessage(chatId, message);
     }
 
@@ -93,10 +122,21 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
                 extinctStatus + "\n" +
                 animal.getWikipediaUrl();
 
+        InlineKeyboardMarkup keyboard = InlineKeyboardMarkup.builder()
+                .keyboardRow(
+                        new InlineKeyboardRow(InlineKeyboardButton
+                                .builder()
+                                .text("❤\uFE0F Aggiungi ai preferiti")
+                                .callbackData("FAV_" + animal.getId() + "|" + animal.getDisplayName())
+                                .build()
+                        )
+                )
+                .build();
+
         if(animal.getImageUrl() != null) {
-            sendPhoto(chatId, animal.getImageUrl(), caption);
+            sendPhoto(chatId, animal.getImageUrl(), caption, keyboard);
         } else {
-            sendMessage(chatId, caption + "\n(Immagine non disponibile)");
+            sendKeyboard(chatId, caption + "\n(Immagine non disponibile)", keyboard);
         }
 
         try {
@@ -110,6 +150,15 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
         try {
             String history = Database.getInstance().getUserHistory(chatId);
             sendMessage(chatId, history);
+        } catch (SQLException e) {
+            sendMessage(chatId, "Errore database");
+        }
+    }
+
+    private void favouritesMessage(long chatId){
+        try {
+            String favourites = Database.getInstance().getFavourites(chatId);
+            sendMessage(chatId, favourites);
         } catch (SQLException e) {
             sendMessage(chatId, "Errore database");
         }
@@ -132,16 +181,31 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
         }
     }
 
-    private void sendPhoto(long chatId, String photoUrl, String caption){
+    private void sendPhoto(long chatId, String photoUrl, String caption, InlineKeyboardMarkup keyboard){
         SendPhoto photo = SendPhoto
                 .builder()
                 .chatId(chatId)
                 .photo(new InputFile(photoUrl))
                 .caption(caption)
+                .replyMarkup(keyboard)
                 .build();
 
         try {
             telegramClient.execute(photo);
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void sendKeyboard(long chatId, String text, InlineKeyboardMarkup keyboard){
+        SendMessage message = SendMessage // Create a message object
+                .builder()
+                .chatId(chatId)
+                .text(text)
+                .replyMarkup(keyboard)
+                .build();
+        try {
+            telegramClient.execute(message); // Sending our message object to user
         } catch (TelegramApiException e) {
             e.printStackTrace();
         }
