@@ -1,6 +1,6 @@
 package org.example;
 
-public class AutocompleteAnimal {
+public class Animal {
     private int id;
     private String name;
     private String preferred_common_name;
@@ -8,6 +8,11 @@ public class AutocompleteAnimal {
     private boolean extinct;
     private String wikipedia_url;
     private DefaultPhoto default_photo;
+
+    public Animal(int animalId, String animalName) {
+        this.id = animalId;
+        this.preferred_common_name = animalName;
+    }
 
     public int getId() {
         return id;
@@ -18,7 +23,7 @@ public class AutocompleteAnimal {
     }
 
     public String getDisplayName() {
-        if (name == null) {
+        if (preferred_common_name == null) {
             return "";
         }
         return preferred_common_name;

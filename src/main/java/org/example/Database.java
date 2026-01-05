@@ -1,6 +1,8 @@
 package org.example;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Database {
     private Connection connection;
@@ -139,6 +141,29 @@ public class Database {
         }
     }
 
+    public boolean clearUserHistory(long telegramId) {
+        try {
+            if (connection == null || !connection.isValid(5)) {
+                System.err.println("Errore di connessione al database");
+                return false;
+            }
+        } catch (SQLException e) {
+            System.err.println("Errore di connessione al database");
+            return false;
+        }
+
+        String query = "DELETE FROM search_history WHERE telegram_id = ?";
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setLong(1, telegramId);
+
+            statement.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            System.err.println("Errore nell'eliminazione della cronologia: " + e.getMessage());
+            return false;
+        }
+    }
+
     public boolean addFavourite(long telegramId, int animalId, String animalName) {
         try {
             if (connection == null || !connection.isValid(5)) {
@@ -165,20 +190,20 @@ public class Database {
         }
     }
 
-    public String getFavourites(long telegramId) {
+    public List<Animal> getFavourites(long telegramId) {
+        List<Animal> favourites = new ArrayList<>();
+
         try {
             if (connection == null || !connection.isValid(5)) {
                 System.err.println("Errore di connessione al database");
-                return "Errore di connessione al database";
+                return favourites;
             }
         } catch (SQLException e) {
             System.err.println("Errore di connessione al database");
-            return "Errore di connessione al database";
+            return favourites;
         }
 
-        String query = "SELECT animal_name FROM favourites WHERE telegram_id = ?";
-
-        String result = "Animali preferiti:\n";
+        String query = "SELECT animal_id, animal_name FROM favourites WHERE telegram_id = ?";
 
         try {
             PreparedStatement statement = connection.prepareStatement(query);
@@ -186,16 +211,41 @@ public class Database {
 
             ResultSet rs = statement.executeQuery();
 
-            int count = 0;
             while (rs.next()) {
-                count++;
-                result += "- " + rs.getString("animal_name") + "\n";
+                int animalId = rs.getInt("animal_id");
+                String animalName = rs.getString("animal_name");
+
+                favourites.add(new Animal(animalId, animalName));
             }
 
-            return count == 0 ? "Nessun animale nei preferiti" : result;
         } catch (SQLException e) {
             System.err.println("Errore di query: " + e.getMessage());
-            return "Errore nel recupero delle preferenze";
+        }
+
+        return favourites;
+    }
+
+    public boolean removeFavourite(long telegramId, int animalId) {
+        try {
+            if (connection == null || !connection.isValid(5)) {
+                System.err.println("Errore di connessione al database");
+                return false;
+            }
+        } catch (SQLException e) {
+            System.err.println("Errore di connessione al database");
+            return false;
+        }
+
+        String query = "DELETE FROM favourites WHERE telegram_id = ? AND animal_id = ?";
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setLong(1, telegramId);
+            statement.setLong(2, animalId);
+
+            statement.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            System.err.println("Errore nell'eliminazione della cronologia: " + e.getMessage());
+            return false;
         }
     }
 }

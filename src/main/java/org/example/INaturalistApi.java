@@ -39,19 +39,19 @@ public class INaturalistApi {
         }
     }
 
-    public AutocompleteAnimal autocompleteAnimal(String name) {
+    public Animal autocompleteAnimal(String name) {
         String query = URLEncoder.encode(name.trim(), StandardCharsets.UTF_8);
         String json = sendRequest("/taxa/autocomplete?q=" + query);
         if(json == null) {
             return null;
         }
-        AutocompleteResponse response = gson.fromJson(json, AutocompleteResponse.class);
+        Response response = gson.fromJson(json, Response.class);
 
         if(response == null || response.getResults() == null) {
             return null;
         }
 
-        for(AutocompleteAnimal animal : response.getResults()) {
+        for(Animal animal : response.getResults()) {
             if(isAnimal(animal)) {
                 return animal;
             }
@@ -60,7 +60,7 @@ public class INaturalistApi {
         return null;
     }
 
-    private boolean isAnimal(AutocompleteAnimal a) {
+    private boolean isAnimal(Animal a) {
         if(a.getIconicTaxon() == null) {
             return false;
         }

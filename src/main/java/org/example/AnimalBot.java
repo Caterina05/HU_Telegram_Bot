@@ -12,6 +12,8 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
     private final TelegramClient telegramClient;
@@ -39,6 +41,8 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
 
             } else if (message_text.startsWith("/history")) {
                 historyMessage(chat_id);
+            } else if (message_text.startsWith("/clearhistory")) {
+                    clearHistoryMessage(chat_id);
             } else if (message_text.startsWith("/favourites")) {
                 favouritesMessage(chat_id);
             } else {
@@ -68,6 +72,14 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
                 } catch (SQLException e) {
                     e.printStackTrace();
                 }
+            } else if (call_data.startsWith("DEL_")) {
+                int animalId = Integer.parseInt(call_data.replace("DEL_", ""));
+                try {
+                    Database.getInstance().removeFavourite(telegram_id, animalId);
+                    sendMessage(chat_id, "Animale rimosso dai preferiti");
+                } catch (SQLException e) {
+                    sendMessage(chat_id, "Errore database");
+                }
             }
         }
     }
@@ -93,9 +105,10 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
                 "Comandi disponibili:\n" +
                 "/start - Avvia il bot\n" +
                 "/help - Mostra i comandi disponibili\n" +
-                "/animal <nome> - Informazioni su un animale\n" +
-                "/random - Animale casuale\n" +
+                "/animal <nome> - Mostra alcune informazioni sull'animale ricercato\n" +
+                "/random - Mostra alcune informazioni su un animale casuale\n" +
                 "/history - Visualizza le ultime ricerche\n" +
+                "/clearhistory - Elimina la cronologia delle ricerche\n" +
                 "/favourites - Mostra gli animali preferiti";
         sendMessage(chatId, message);
     }
@@ -108,7 +121,7 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
             return;
         }
 
-        AutocompleteAnimal animal = api.autocompleteAnimal(name);
+        Animal animal = api.autocompleteAnimal(name);
         if(animal == null) {
             sendMessage(chatId, "Animale non trovato");
             return;
@@ -155,10 +168,49 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
         }
     }
 
+    private void clearHistoryMessage(long chatId){
+        try {
+            boolean cleared = Database.getInstance().clearUserHistory(chatId);
+            if(cleared){
+                sendMessage(chatId, "Cronologia delle ricerche eliminata");
+            } else {
+                sendMessage(chatId, "Non c'era alcuna cronologia da eliminare");
+            }
+        } catch (SQLException e) {
+            sendMessage(chatId, "Errore database");
+        }
+    }
+
     private void favouritesMessage(long chatId){
         try {
-            String favourites = Database.getInstance().getFavourites(chatId);
-            sendMessage(chatId, favourites);
+            List<Animal> favourites = Database.getInstance().getFavourites(chatId);
+
+            if(favourites.isEmpty()){
+                sendMessage(chatId, "Nessun animale nei preferiti");
+                return;
+            }
+
+            List<InlineKeyboardRow> rows = new ArrayList<>();
+            for(Animal animal : favourites){
+                InlineKeyboardButton nameBtn = InlineKeyboardButton
+                        .builder()
+                        .text(animal.getDisplayName())
+                        .callbackData("INFO_" + animal.getId())
+                        .build();
+
+                InlineKeyboardButton removeBtn = InlineKeyboardButton
+                        .builder()
+                        .text("❌")
+                        .callbackData("DEL_" +animal.getId())
+                        .build();
+                rows.add(new InlineKeyboardRow(nameBtn, removeBtn));
+            }
+
+            InlineKeyboardMarkup keyboard = InlineKeyboardMarkup.builder()
+                    .keyboard(rows)
+                    .build();
+
+            sendKeyboard(chatId, "Animali preferiti:", keyboard);
         } catch (SQLException e) {
             sendMessage(chatId, "Errore database");
         }
