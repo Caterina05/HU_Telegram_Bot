@@ -25,9 +25,7 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
 
     @Override
     public void consume(Update update) {
-        // We check if the update has a message and the message has text
         if (update.hasMessage() && update.getMessage().hasText()) {
-            // Set variables
             String message_text = update.getMessage().getText();
             long chat_id = update.getMessage().getChatId();
 
@@ -50,8 +48,6 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
             } else {
                 unknownMessage(chat_id);
             }
-        } else if (update.hasMessage() && update.getMessage().hasPhoto()) {
-            // Message contains photo
         } else if (update.hasCallbackQuery()){
             String call_data = update.getCallbackQuery().getData();
             long chat_id = update.getCallbackQuery().getMessage().getChatId();
@@ -268,19 +264,18 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
         }
     }
 
-
     private void unknownMessage(long chatId){
         sendMessage(chatId, "Comando non riconosciuto\nScrivi /help per vedere i comandi disponibili");
     }
 
     private void sendMessage(long chatId, String text){
-        SendMessage message = SendMessage // Create a message object
+        SendMessage message = SendMessage
                 .builder()
                 .chatId(chatId)
                 .text(text)
                 .build();
         try {
-            telegramClient.execute(message); // Sending our message object to user
+            telegramClient.execute(message);
         } catch (TelegramApiException e) {
             e.printStackTrace();
         }
@@ -303,14 +298,14 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
     }
 
     private void sendKeyboard(long chatId, String text, InlineKeyboardMarkup keyboard){
-        SendMessage message = SendMessage // Create a message object
+        SendMessage message = SendMessage
                 .builder()
                 .chatId(chatId)
                 .text(text)
                 .replyMarkup(keyboard)
                 .build();
         try {
-            telegramClient.execute(message); // Sending our message object to user
+            telegramClient.execute(message);
         } catch (TelegramApiException e) {
             e.printStackTrace();
         }

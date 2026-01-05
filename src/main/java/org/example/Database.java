@@ -182,8 +182,8 @@ public class Database {
             statement.setLong(1, telegramId);
             statement.setInt(2, animalId);
             statement.setString(3, animalName);
-            statement.executeUpdate();
-            return true;
+            int rows = statement.executeUpdate();
+            return rows > 0;
         } catch (SQLException e) {
             System.err.println("Errore di query: " + e.getMessage());
             return false;
