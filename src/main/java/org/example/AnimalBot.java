@@ -38,7 +38,7 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
             } else if (message_text.startsWith("/animal")){
                 animalMessage(chat_id, message_text);
             } else if (message_text.startsWith("/random")){
-
+                randomMessages(chat_id);
             } else if (message_text.startsWith("/history")) {
                 historyMessage(chat_id);
             } else if (message_text.startsWith("/clearhistory")) {
@@ -124,6 +124,46 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
         Animal animal = api.autocompleteAnimal(name);
         if(animal == null) {
             sendMessage(chatId, "Animale non trovato");
+            return;
+        }
+
+        String extinctStatus = animal.isExtinct() ? "Stato: estinto" : "Stato: non estinto";
+
+        String caption = animal.getDisplayName() + "\n" +
+                "Nome scientifico: " + animal.getScientificName() + "\n" +
+                "Classe: " + animal.getIconicTaxon() + "\n" +
+                extinctStatus + "\n" +
+                animal.getWikipediaUrl();
+
+        InlineKeyboardMarkup keyboard = InlineKeyboardMarkup.builder()
+                .keyboardRow(
+                        new InlineKeyboardRow(InlineKeyboardButton
+                                .builder()
+                                .text("❤\uFE0F Aggiungi ai preferiti")
+                                .callbackData("FAV_" + animal.getId() + "|" + animal.getDisplayName())
+                                .build()
+                        )
+                )
+                .build();
+
+        if(animal.getImageUrl() != null) {
+            sendPhoto(chatId, animal.getImageUrl(), caption, keyboard);
+        } else {
+            sendKeyboard(chatId, caption + "\n(Immagine non disponibile)", keyboard);
+        }
+
+        try {
+            Database.getInstance().saveSearch(chatId, animal.getDisplayName());
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void randomMessages(long chatId){
+        Animal animal = api.getRandomAnimal();
+
+        if(animal == null) {
+            sendMessage(chatId, "Impossibile trovare un animale casuale");
             return;
         }
 

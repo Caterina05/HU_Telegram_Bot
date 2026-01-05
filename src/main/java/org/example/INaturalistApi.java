@@ -9,6 +9,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.Random;
 
 public class INaturalistApi {
     private static final String base_url = "https://api.inaturalist.org/v1";
@@ -54,6 +55,28 @@ public class INaturalistApi {
         for(Animal animal : response.getResults()) {
             if(isAnimal(animal)) {
                 return animal;
+            }
+        }
+
+        return null;
+    }
+
+    public Animal getRandomAnimal() {
+        for (int i = 0; i < 10; i++) { // max 10 tentativi
+            int randomPage = new Random().nextInt(500) + 1; // 1..500
+            String json = sendRequest("/taxa?iconic_taxa=Animalia&rank=species&per_page=1&page=" + randomPage);
+
+            if (json == null) continue;
+
+            Response response = gson.fromJson(json, Response.class);
+
+            if (response == null || response.getResults() == null || response.getResults().length == 0)
+                continue;
+
+            Animal candidate = response.getResults()[0];
+
+            if (isAnimal(candidate)) {
+                return candidate;
             }
         }
 
