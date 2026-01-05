@@ -45,6 +45,8 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
                     clearHistoryMessage(chat_id);
             } else if (message_text.startsWith("/favourites")) {
                 favouritesMessage(chat_id);
+            } else if(message_text.startsWith("/stats")) {
+                statsMessage(chat_id);
             } else {
                 unknownMessage(chat_id);
             }
@@ -109,7 +111,8 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
                 "/random - Mostra alcune informazioni su un animale casuale\n" +
                 "/history - Visualizza le ultime ricerche\n" +
                 "/clearhistory - Elimina la cronologia delle ricerche\n" +
-                "/favourites - Mostra gli animali preferiti";
+                "/favourites - Mostra gli animali preferiti\n" +
+                "/stats - Mostra gli animali più ricercati";
         sendMessage(chatId, message);
     }
 
@@ -255,6 +258,16 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
             sendMessage(chatId, "Errore database");
         }
     }
+
+    private void statsMessage(long chatId){
+        try {
+            String stats = Database.getInstance().getTopSearchedAnimals();
+            sendMessage(chatId, stats);
+        } catch (SQLException e) {
+            sendMessage(chatId, "Errore database");
+        }
+    }
+
 
     private void unknownMessage(long chatId){
         sendMessage(chatId, "Comando non riconosciuto\nScrivi /help per vedere i comandi disponibili");

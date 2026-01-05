@@ -225,15 +225,15 @@ public class Database {
         return favourites;
     }
 
-    public boolean removeFavourite(long telegramId, int animalId) {
+    public void removeFavourite(long telegramId, int animalId) {
         try {
             if (connection == null || !connection.isValid(5)) {
                 System.err.println("Errore di connessione al database");
-                return false;
+                return;
             }
         } catch (SQLException e) {
             System.err.println("Errore di connessione al database");
-            return false;
+            return;
         }
 
         String query = "DELETE FROM favourites WHERE telegram_id = ? AND animal_id = ?";
@@ -242,10 +242,47 @@ public class Database {
             statement.setLong(2, animalId);
 
             statement.executeUpdate();
-            return true;
         } catch (SQLException e) {
             System.err.println("Errore nell'eliminazione della cronologia: " + e.getMessage());
-            return false;
+        }
+    }
+
+    public String getTopSearchedAnimals() {
+        try {
+            if (connection == null || !connection.isValid(5)) {
+                System.err.println("Errore di connessione al database");
+                return "Errore di connessione al database";
+            }
+        } catch (SQLException e) {
+            System.err.println("Errore di connessione al database");
+            return "Errore di connessione al database";
+        }
+
+        String query = """
+            SELECT animal_name, COUNT(*) AS searches
+            FROM search_history
+            GROUP BY animal_name
+            ORDER BY searches DESC
+            LIMIT 10
+        """;
+
+        String result = "Animali più ricercati:\n";
+
+        try {
+            PreparedStatement statement = connection.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+
+            boolean empty = true;
+            while (rs.next()) {
+                empty = false;
+                result += "- " + rs.getString("animal_name");
+                result += " (" + rs.getString("searches") + " ricerche)\n";
+            }
+
+            return empty ? "Nessuna statistica disponibile" : result;
+        } catch (SQLException e) {
+            System.err.println("Errore di query: " + e.getMessage());
+            return "Errore nel recupero della cronologia";
         }
     }
 }
