@@ -131,6 +131,8 @@ BOT_TOKEN=INSERISCI_IL_TUO_BOT_TOKEN
 
 **Nota:** config.properties va messo nel .gitignore
 
+---
+
 ## Comandi disponibili
 ```text
 /start - Avvia il bot  
@@ -143,6 +145,8 @@ BOT_TOKEN=INSERISCI_IL_TUO_BOT_TOKEN
 /stats - Animali più cercati
 ```
 
+---
+
 ## Esempi di utilizzo
 ### Ricerca animale
 ![Ricerca animale](images/Ricerca_animale.jpeg)
@@ -153,6 +157,8 @@ BOT_TOKEN=INSERISCI_IL_TUO_BOT_TOKEN
 ### Cronologia
 ![Cronologia](images/Cronologia.jpeg)
 
+---
+
 ## Schema del database  
 users  
  └── telegram_id (PK)
@@ -162,6 +168,8 @@ search_history
 
 favourites  
  └── (telegram_id, animal_id) (PK) → users.telegram_id
+
+---
 
 ## Query di esempio implementate
 ### Animali più cercati
