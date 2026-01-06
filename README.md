@@ -93,41 +93,16 @@ git clone https://github.com/USERNAME/animalbot.git
 cd animalbot
 ```
 
-### Creare il database SQLite
-
-Crea il file:
-database/animalbot.db
-
-Tabelle SQL
-```sql
-CREATE TABLE users (
-    telegram_id INTEGER PRIMARY KEY,
-    username TEXT,
-    first_name TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE search_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    telegram_id INTEGER,
-    animal_name TEXT,
-    searched_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE favourites (
-    telegram_id INTEGER,
-    animal_id INTEGER,
-    animal_name TEXT,
-    PRIMARY KEY (telegram_id, animal_id)
-);
-```
-
 ### File di configurazione (template)
 
 Crea il file:
 config.properties.example
-
+```
 BOT_TOKEN=INSERISCI_IL_TUO_BOT_TOKEN
+```
+Copia il file:
+config.properties.example → config.properties
+
 
 **Nota:** config.properties va messo nel .gitignore
 
@@ -160,14 +135,44 @@ BOT_TOKEN=INSERISCI_IL_TUO_BOT_TOKEN
 ---
 
 ## Schema del database  
+### Tabelle
+```sql
+CREATE TABLE users (
+    telegram_id INTEGER PRIMARY KEY,
+    username TEXT,
+    first_name TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE search_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    telegram_id INTEGER,
+    animal_name TEXT,
+    searched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (telegram_id) REFERENCES users(telegram_id)
+);
+
+CREATE TABLE favourites (
+    telegram_id INTEGER,
+    animal_id INTEGER,
+    animal_name TEXT,
+    PRIMARY KEY (telegram_id, animal_id),
+    FOREIGN KEY (telegram_id) REFERENCES users(telegram_id)
+);
+
+
+```
+
+### Relazioni
+```
 users  
- └── telegram_id (PK)
-
-search_history  
- └── telegram_id → users.telegram_id
-
-favourites  
- └── (telegram_id, animal_id) (PK) → users.telegram_id
+└── telegram_id (PK)  
+        │  
+        ├── search_history.telegram_id (FK)  
+        │  
+        └── favourites.telegram_id (FK)  
+                    └── animal_id (PK composto)
+```
 
 ---
 
