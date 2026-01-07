@@ -190,12 +190,6 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
         } else {
             sendKeyboard(chatId, caption + "\n(Immagine non disponibile)", keyboard);
         }
-
-        try {
-            Database.getInstance().saveSearch(chatId, animal.getDisplayName());
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     private void historyMessage(long chatId){
