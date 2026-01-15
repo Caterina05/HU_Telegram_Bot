@@ -62,7 +62,7 @@ public class INaturalistApi {
     }
 
     public Animal getRandomAnimal() {
-        for (int i = 0; i < 10; i++) { // max 10 tentativi
+        for (int j = 0; j < 10; j++) { // max 10 tentativi
             int randomPage = new Random().nextInt(500) + 1; // 1..500
             String json = sendRequest("/taxa?iconic_taxa=Animalia&rank=species&per_page=1&page=" + randomPage);
 
@@ -79,7 +79,16 @@ public class INaturalistApi {
                 return candidate;
             }
         }
+        return null;
+    }
 
+    public Animal getRandomAnimalWithImage() {
+        for (int i = 0; i < 20; i++) {
+            Animal a = getRandomAnimal();
+            if (a != null && a.getImageUrl() != null) {
+                return a;
+            }
+        }
         return null;
     }
 

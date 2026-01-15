@@ -74,6 +74,37 @@ public class Database {
         }
     }
 
+    public void updateScore(long telegramId, int delta) {
+        try {
+            if (connection == null || !connection.isValid(5)) {
+                System.err.println("Errore di connessione al database");
+                return;
+            }
+        } catch (SQLException e) {
+            System.err.println("Errore di connessione al database");
+            return;
+        }
+        String query = "UPDATE users SET score = score + ? WHERE telegram_id = ?";
+        try {
+            PreparedStatement statement = connection.prepareStatement(query);
+
+            statement.setInt(1, delta);
+            statement.setLong(2, telegramId);
+
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("Errore di query: " + e.getMessage());
+        }
+    }
+
+    public int getScore(long telegramId) throws SQLException {
+        String query = "SELECT score FROM users WHERE telegram_id = ?";
+        PreparedStatement statement = connection.prepareStatement(query);
+        statement.setLong(1, telegramId);
+        ResultSet rs = statement.executeQuery();
+        return rs.next() ? rs.getInt("score") : 0;
+    }
+
     public boolean saveSearch(long telegramId, String animalName) {
         try {
             if (connection == null || !connection.isValid(5)) {

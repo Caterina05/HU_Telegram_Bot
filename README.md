@@ -18,7 +18,8 @@ Il progetto utilizza **SQLite** come database locale e la libreria ufficiale **T
 - Informazioni dettagliate (nome scientifico, classe, stato di estinzione)
 - Immagine dell’animale (se disponibile)
 - Sistema di preferiti con pulsanti inline
-- Animale casuale
+- Quiz su un animale casuale
+- Aggiorna il punteggio totale dell'utente sui quiz
 - Cronologia ricerche
 - Statistiche sugli animali più cercati
 - Gestione cronologia e preferiti
@@ -95,14 +96,13 @@ cd animalbot
 
 ### File di configurazione (template)
 
-Crea il file:
+Copia il file:
 config.properties.example
 ```
 BOT_TOKEN=INSERISCI_IL_TUO_BOT_TOKEN
 ```
-Copia il file:
+Rinomina il file:
 config.properties.example → config.properties
-
 
 **Nota:** config.properties va messo nel .gitignore
 
@@ -113,7 +113,8 @@ config.properties.example → config.properties
 /start - Avvia il bot  
 /help - Mostra l’elenco dei comandi
 /animal <nome> - Cerca un animale
-/random	- Animale casuale
+/quiz	- Quiz: indovina l’animale dall’immagine
+/score - Mostra il punteggio totale
 /history - Ultime ricerche
 /clearhistory - Cancella cronologia
 /favourites - Mostra preferiti
@@ -125,6 +126,9 @@ config.properties.example → config.properties
 ## Esempi di utilizzo
 ### Ricerca animale
 ![Ricerca animale](images/Ricerca_animale.jpeg)
+
+### Quiz
+![Cronologia](images/Quiz.jpeg)
 
 ### Preferiti
 ![Preferiti](images/Preferiti.jpeg)
@@ -141,6 +145,7 @@ CREATE TABLE users (
     telegram_id INTEGER PRIMARY KEY,
     username TEXT,
     first_name TEXT,
+    score INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

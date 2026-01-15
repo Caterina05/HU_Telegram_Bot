@@ -4,7 +4,7 @@ public class Animal {
     private int id;
     private String name;
     private String preferred_common_name;
-    private String iconic_taxon_name;
+    private String iconic_taxon_name;   // categoria/tassonomia principale
     private boolean extinct;
     private String wikipedia_url;
     private DefaultPhoto default_photo;
