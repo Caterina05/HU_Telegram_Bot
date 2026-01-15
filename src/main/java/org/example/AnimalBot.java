@@ -10,56 +10,49 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
-
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-
+import java.sql.SQLException; import java.util.*;
 public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
     private final TelegramClient telegramClient;
     private final INaturalistApi api = new INaturalistApi();
-
+    // Collezione di stringhe non duplicate
+    private final Set<String> answeredQuizzes = new HashSet<>();
     public AnimalBot(String botToken) {
         telegramClient = new OkHttpTelegramClient(botToken);
     }
-
     @Override
     public void consume(Update update) {
         if (update.hasMessage() && update.getMessage().hasText()) {
             String message_text = update.getMessage().getText();
             long chat_id = update.getMessage().getChatId();
-
-            if(message_text.startsWith("/start")){
+            if(message_text.startsWith("/start")) {
                 startMessage(update);
-            } else if (message_text.startsWith("/help")){
+            } else if (message_text.startsWith("/help")) {
                 helpMessage(chat_id);
-            } else if (message_text.startsWith("/animal")){
+            } else if (message_text.startsWith("/animal")) {
                 animalMessage(chat_id, message_text);
-            } else if (message_text.startsWith("/random")){
-                randomMessages(chat_id);
+            } else if (message_text.startsWith("/quiz")) {
+                quizMessage(chat_id);
+            } else if (message_text.startsWith("/score")) {
+                scoreMessages(chat_id);
             } else if (message_text.startsWith("/history")) {
                 historyMessage(chat_id);
             } else if (message_text.startsWith("/clearhistory")) {
-                    clearHistoryMessage(chat_id);
+                clearHistoryMessage(chat_id);
             } else if (message_text.startsWith("/favourites")) {
                 favouritesMessage(chat_id);
             } else if(message_text.startsWith("/stats")) {
                 statsMessage(chat_id);
             } else {
-                unknownMessage(chat_id);
-            }
-        } else if (update.hasCallbackQuery()){
+                unknownMessage(chat_id); }
+        } else if (update.hasCallbackQuery()) {
             String call_data = update.getCallbackQuery().getData();
             long chat_id = update.getCallbackQuery().getMessage().getChatId();
             long telegram_id = update.getCallbackQuery().getFrom().getId();
-
             if (call_data.startsWith("FAV_")) {
                 String payload = call_data.replace("FAV_", "");
                 String[] parts = payload.split("\\|");
-
                 int animalId = Integer.parseInt(parts[0]);
                 String animalName = parts[1];
-
                 try {
                     boolean saved = Database.getInstance().addFavourite(telegram_id, animalId, animalName);
                     if(saved) {
@@ -78,6 +71,34 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
                 } catch (SQLException e) {
                     sendMessage(chat_id, "Errore database");
                 }
+            } else if (call_data.startsWith("QUIZ_")) {
+                // Controlla se questo quiz è già stato risposto
+                String quizId = chat_id + "_" + update.getCallbackQuery().getMessage().getMessageId();
+                if (answeredQuizzes.contains(quizId)) {
+                    // Quiz già risposto, ignora
+                    return;
+                }
+                // Segna il quiz come risposto
+                answeredQuizzes.add(quizId);
+
+                String payload = call_data.replace("QUIZ_", "");
+                String[] parts = payload.split("\\|");
+                int correctId = Integer.parseInt(parts[0]);
+                int chosenId = Integer.parseInt(parts[1]);
+                String correctName = parts[2];
+
+                boolean correct = (correctId == chosenId);
+                try {
+                    if (correct) {
+                        Database.getInstance().updateScore(telegram_id, +1);
+                        sendMessage(chat_id, "Risposta corretta! +1 punto");
+                    } else {
+                        Database.getInstance().updateScore(telegram_id, -1);
+                        sendMessage(chat_id, "Risposta errata! -1 punto\nLa risposta corretta era: " + correctName);
+                    }
+                } catch (SQLException e) {
+                    sendMessage(chat_id, "Errore nel salvataggio del punteggio");
+                }
             }
         }
     }
@@ -85,7 +106,6 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
     private void startMessage(Update update) {
         long chatId = update.getMessage().getChatId();
         var tgUser = update.getMessage().getFrom();
-
         try {
             Database db = Database.getInstance();
             if(!db.userExists(tgUser.getId())){
@@ -94,28 +114,27 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-
         sendMessage(chatId, "Benvenuto in AnimalBot\nScrivi /help per vedere i comandi disponibili");
     }
 
-    private void helpMessage(long chatId){
-        String message =
-                "Comandi disponibili:\n" +
+    private void helpMessage(long chatId) {
+        String message = "Comandi disponibili:\n" +
                 "/start - Avvia il bot\n" +
                 "/help - Mostra i comandi disponibili\n" +
                 "/animal <nome> - Mostra alcune informazioni sull'animale ricercato\n" +
-                "/random - Mostra alcune informazioni su un animale casuale\n" +
+                "/quiz - Quiz: indovina l'animale dall'immagine\n" +
+                "/score - Mostra il punteggio totale ottenuto nei quiz" +
                 "/history - Visualizza le ultime ricerche\n" +
                 "/clearhistory - Elimina la cronologia delle ricerche\n" +
                 "/favourites - Mostra gli animali preferiti\n" +
                 "/stats - Mostra gli animali più ricercati";
+
         sendMessage(chatId, message);
     }
 
-    private void animalMessage(long chatId, String text){
+    private void animalMessage(long chatId, String text) {
         String name = text.replace("/animal", "").trim();
-
-        if(name.isEmpty()){
+        if(name.isEmpty()) {
             sendMessage(chatId, "Comando: /animal <nome>");
             return;
         }
@@ -127,7 +146,6 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
         }
 
         String extinctStatus = animal.isExtinct() ? "Stato: estinto" : "Stato: non estinto";
-
         String caption = animal.getDisplayName() + "\n" +
                 "Nome scientifico: " + animal.getScientificName() + "\n" +
                 "Classe: " + animal.getIconicTaxon() + "\n" +
@@ -158,47 +176,80 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
         }
     }
 
-    private void randomMessages(long chatId){
-        Animal animal = api.getRandomAnimal();
+    private boolean isSimilarName(String a, String b) {
+        a = a.toLowerCase();
+        b = b.toLowerCase();
+        for (String part : a.split(" ")) {
+            if (b.contains(part)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
+    private void quizMessage(long chatId){
+        sendMessage(chatId, "Generazione del quiz in corso...\nAttendere...");
+        Animal animal = api.getRandomAnimalWithImage();
         if(animal == null) {
-            sendMessage(chatId, "Impossibile trovare un animale casuale");
+            sendMessage(chatId, "Impossibile avviare il quiz");
             return;
         }
 
-        String extinctStatus = animal.isExtinct() ? "Stato: estinto" : "Stato: non estinto";
+        String targetTaxon = animal.getIconicTaxon();
+        List<Animal> options = new ArrayList<>();
+        options.add(animal);
 
-        String caption = animal.getDisplayName() + "\n" +
-                "Nome scientifico: " + animal.getScientificName() + "\n" +
-                "Classe: " + animal.getIconicTaxon() + "\n" +
-                extinctStatus + "\n" +
-                animal.getWikipediaUrl();
+        // Tentativi per trovare simili
+        int attempts = 0;
+        while (options.size() < 4 && attempts < 20) {
+            attempts++;
+            Animal a = api.getRandomAnimal();
+            if (a == null || a.getDisplayName() == null) continue;
+            // L'animale deve appartenere alla stessa categoria principale
+            if (!targetTaxon.equals(a.getIconicTaxon())) continue;
+            if (!isSimilarName(animal.getDisplayName(), a.getDisplayName())) continue;
+            // Evita duplicati
+            if (options.stream().anyMatch(o -> o.getId() == a.getId())) continue;
 
-        InlineKeyboardMarkup keyboard = InlineKeyboardMarkup.builder()
-                .keyboardRow(
-                        new InlineKeyboardRow(InlineKeyboardButton
-                                .builder()
-                                .text("❤\uFE0F Aggiungi ai preferiti")
-                                .callbackData("FAV_" + animal.getId() + "|" + animal.getDisplayName())
-                                .build()
-                        )
-                )
-                .build();
-
-        if(animal.getImageUrl() != null) {
-            sendPhoto(chatId, animal.getImageUrl(), caption, keyboard);
-        } else {
-            sendKeyboard(chatId, caption + "\n(Immagine non disponibile)", keyboard);
+            options.add(a);
         }
 
+        // Se non trova abbastanza simili
+        while (options.size() < 4) {
+            Animal a = api.getRandomAnimal();
+            if (a != null && options.stream().noneMatch(o -> o.getId() == a.getId())) {
+                options.add(a);
+            }
+        }
+
+        // Mischia l'ordine delle opzioni
+        Collections.shuffle(options);
+
+        List<InlineKeyboardRow> rows = new ArrayList<>();
+        for (Animal a : options) {
+            rows.add(new InlineKeyboardRow(
+                    InlineKeyboardButton.builder()
+                            .text(a.getDisplayName())
+                            .callbackData("QUIZ_" + animal.getId() + "|" + a.getId() + "|" + animal.getDisplayName())
+                            .build() ));
+        }
+        InlineKeyboardMarkup keyboard = InlineKeyboardMarkup.builder()
+                .keyboard(rows)
+                .build();
+
+        sendPhoto(chatId, animal.getImageUrl(), "Quiz!\nChe animale è?", keyboard);
+    }
+
+    private void scoreMessages(long chatId) {
         try {
-            Database.getInstance().saveSearch(chatId, animal.getDisplayName());
+            int score = Database.getInstance().getScore(chatId);
+            sendMessage(chatId, "Il tuo punteggio: " + score);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private void historyMessage(long chatId){
+    private void historyMessage(long chatId) {
         try {
             String history = Database.getInstance().getUserHistory(chatId);
             sendMessage(chatId, history);
@@ -207,10 +258,10 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
         }
     }
 
-    private void clearHistoryMessage(long chatId){
+    private void clearHistoryMessage(long chatId) {
         try {
             boolean cleared = Database.getInstance().clearUserHistory(chatId);
-            if(cleared){
+            if(cleared) {
                 sendMessage(chatId, "Cronologia delle ricerche eliminata");
             } else {
                 sendMessage(chatId, "Non c'era alcuna cronologia da eliminare");
@@ -220,17 +271,16 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
         }
     }
 
-    private void favouritesMessage(long chatId){
+    private void favouritesMessage(long chatId) {
         try {
             List<Animal> favourites = Database.getInstance().getFavourites(chatId);
-
-            if(favourites.isEmpty()){
+            if(favourites.isEmpty()) {
                 sendMessage(chatId, "Nessun animale nei preferiti");
                 return;
             }
 
             List<InlineKeyboardRow> rows = new ArrayList<>();
-            for(Animal animal : favourites){
+            for(Animal animal : favourites) {
                 InlineKeyboardButton nameBtn = InlineKeyboardButton
                         .builder()
                         .text(animal.getDisplayName())
@@ -242,6 +292,7 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
                         .text("❌")
                         .callbackData("DEL_" +animal.getId())
                         .build();
+
                 rows.add(new InlineKeyboardRow(nameBtn, removeBtn));
             }
 
@@ -255,7 +306,7 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
         }
     }
 
-    private void statsMessage(long chatId){
+    private void statsMessage(long chatId) {
         try {
             String stats = Database.getInstance().getTopSearchedAnimals();
             sendMessage(chatId, stats);
@@ -264,16 +315,17 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
         }
     }
 
-    private void unknownMessage(long chatId){
+    private void unknownMessage(long chatId) {
         sendMessage(chatId, "Comando non riconosciuto\nScrivi /help per vedere i comandi disponibili");
     }
 
-    private void sendMessage(long chatId, String text){
+    private void sendMessage(long chatId, String text) {
         SendMessage message = SendMessage
                 .builder()
                 .chatId(chatId)
                 .text(text)
                 .build();
+
         try {
             telegramClient.execute(message);
         } catch (TelegramApiException e) {
@@ -281,7 +333,7 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
         }
     }
 
-    private void sendPhoto(long chatId, String photoUrl, String caption, InlineKeyboardMarkup keyboard){
+    private void sendPhoto(long chatId, String photoUrl, String caption, InlineKeyboardMarkup keyboard) {
         SendPhoto photo = SendPhoto
                 .builder()
                 .chatId(chatId)
@@ -297,13 +349,14 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
         }
     }
 
-    private void sendKeyboard(long chatId, String text, InlineKeyboardMarkup keyboard){
+    private void sendKeyboard(long chatId, String text, InlineKeyboardMarkup keyboard) {
         SendMessage message = SendMessage
                 .builder()
                 .chatId(chatId)
                 .text(text)
                 .replyMarkup(keyboard)
                 .build();
+
         try {
             telegramClient.execute(message);
         } catch (TelegramApiException e) {
