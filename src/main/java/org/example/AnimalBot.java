@@ -12,13 +12,12 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.sql.SQLException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
     private final TelegramClient telegramClient;
     private final INaturalistApi api = new INaturalistApi();
-    // Collezione di stringhe non duplicate
-    private final Set<String> answeredQuizzes = new HashSet<>();
 
     public AnimalBot(String botToken) {
         telegramClient = new OkHttpTelegramClient(botToken);
@@ -36,10 +35,8 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
                 helpMessage(chat_id);
             } else if (message_text.startsWith("/animal")){
                 animalMessage(chat_id, message_text);
-            } else if (message_text.startsWith("/quiz")) {
-                quizMessage(chat_id);
-            } else if (message_text.startsWith("/score")){
-                    scoreMessages(chat_id);
+            } else if (message_text.startsWith("/random")){
+                randomMessages(chat_id);
             } else if (message_text.startsWith("/history")) {
                 historyMessage(chat_id);
             } else if (message_text.startsWith("/clearhistory")) {
@@ -81,38 +78,6 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
                 } catch (SQLException e) {
                     sendMessage(chat_id, "Errore database");
                 }
-            } else if (call_data.startsWith("QUIZ_")) {
-                // Controlla se questo quiz è già stato risposto
-                String quizId = chat_id + "_" + update.getCallbackQuery().getMessage().getMessageId();
-
-                if (answeredQuizzes.contains(quizId)) {
-                    // Quiz già risposto, ignora
-                    return;
-                }
-
-                // Segna il quiz come risposto
-                answeredQuizzes.add(quizId);
-
-                String payload = call_data.replace("QUIZ_", "");
-                String[] parts = payload.split("\\|");
-
-                int correctId = Integer.parseInt(parts[0]);
-                int chosenId = Integer.parseInt(parts[1]);
-                String correctName = parts[2];
-
-                boolean correct = (correctId == chosenId);
-
-                try {
-                    if (correct) {
-                        Database.getInstance().updateScore(telegram_id, +1);
-                        sendMessage(chat_id, "Risposta corretta! +1 punto");
-                    } else {
-                        Database.getInstance().updateScore(telegram_id, -1);
-                        sendMessage(chat_id, "Risposta errata! -1 punto\nLa risposta corretta era: " + correctName);
-                    }
-                } catch (SQLException e) {
-                    sendMessage(chat_id, "Errore nel salvataggio del punteggio");
-                }
             }
         }
     }
@@ -139,8 +104,7 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
                 "/start - Avvia il bot\n" +
                 "/help - Mostra i comandi disponibili\n" +
                 "/animal <nome> - Mostra alcune informazioni sull'animale ricercato\n" +
-                "/quiz - Quiz: indovina l'animale dall'immagine\n" +
-                "/score - Mostra il punteggio totale ottenuto nei quiz" +
+                "/random - Mostra alcune informazioni su un animale casuale\n" +
                 "/history - Visualizza le ultime ricerche\n" +
                 "/clearhistory - Elimina la cronologia delle ricerche\n" +
                 "/favourites - Mostra gli animali preferiti\n" +
@@ -194,78 +158,41 @@ public class AnimalBot implements LongPollingSingleThreadUpdateConsumer {
         }
     }
 
-    private boolean isSimilarName(String a, String b) {
-        a = a.toLowerCase();
-        b = b.toLowerCase();
-
-        for (String part : a.split(" ")) {
-            if (b.contains(part)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private void quizMessage(long chatId){
-        sendMessage(chatId, "Generazione del quiz in corso...\nAttendere...");
-        Animal animal = api.getRandomAnimalWithImage();
+    private void randomMessages(long chatId){
+        Animal animal = api.getRandomAnimal();
 
         if(animal == null) {
-            sendMessage(chatId, "Impossibile avviare il quiz");
+            sendMessage(chatId, "Impossibile trovare un animale casuale");
             return;
         }
 
-        String targetTaxon = animal.getIconicTaxon();
-        List<Animal> options = new ArrayList<>();
-        options.add(animal);
+        String extinctStatus = animal.isExtinct() ? "Stato: estinto" : "Stato: non estinto";
 
-        // Tentativi per trovare simili
-        int attempts = 0;
-        while (options.size() < 4 && attempts < 20) {
-            attempts++;
-            Animal a = api.getRandomAnimal();
-            if (a == null || a.getDisplayName() == null) continue;
-            // L'animale deve appartenere alla stessa categoria principale
-            if (!targetTaxon.equals(a.getIconicTaxon())) continue;
-
-            if (!isSimilarName(animal.getDisplayName(), a.getDisplayName())) continue;
-            // Evita duplicati
-            if (options.stream().anyMatch(o -> o.getId() == a.getId())) continue;
-
-            options.add(a);
-        }
-
-        // Se non trova abbastanza simili
-        while (options.size() < 4) {
-            Animal a = api.getRandomAnimal();
-            if (a != null && options.stream().noneMatch(o -> o.getId() == a.getId())) {
-                options.add(a);
-            }
-        }
-        // Mischia l'ordine delle opzioni
-        Collections.shuffle(options);
-
-        List<InlineKeyboardRow> rows = new ArrayList<>();
-        for (Animal a : options) {
-            rows.add(new InlineKeyboardRow(
-                    InlineKeyboardButton.builder()
-                            .text(a.getDisplayName())
-                            .callbackData("QUIZ_" + animal.getId() + "|" + a.getId() + "|" + animal.getDisplayName())
-                            .build()
-            ));
-        }
+        String caption = animal.getDisplayName() + "\n" +
+                "Nome scientifico: " + animal.getScientificName() + "\n" +
+                "Classe: " + animal.getIconicTaxon() + "\n" +
+                extinctStatus + "\n" +
+                animal.getWikipediaUrl();
 
         InlineKeyboardMarkup keyboard = InlineKeyboardMarkup.builder()
-                .keyboard(rows)
+                .keyboardRow(
+                        new InlineKeyboardRow(InlineKeyboardButton
+                                .builder()
+                                .text("❤\uFE0F Aggiungi ai preferiti")
+                                .callbackData("FAV_" + animal.getId() + "|" + animal.getDisplayName())
+                                .build()
+                        )
+                )
                 .build();
 
-        sendPhoto(chatId, animal.getImageUrl(), "Quiz!\nChe animale è?", keyboard);
-    }
+        if(animal.getImageUrl() != null) {
+            sendPhoto(chatId, animal.getImageUrl(), caption, keyboard);
+        } else {
+            sendKeyboard(chatId, caption + "\n(Immagine non disponibile)", keyboard);
+        }
 
-    private void scoreMessages(long chatId) {
         try {
-            int score = Database.getInstance().getScore(chatId);
-            sendMessage(chatId, "Il tuo punteggio: " + score);
+            Database.getInstance().saveSearch(chatId, animal.getDisplayName());
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
